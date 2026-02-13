@@ -3,19 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grapple Hook | Low Gravity</title>
+    <title>Grapple Hook | Rainbow Edition</title>
     <style>
         :root {
-            --bg: #0f0f1a;
+            --bg: #050508;
             --primary: #00d2ff;
-            --accent: #9d50bb;
-            --text: #ffffff;
         }
 
         body {
             background: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', sans-serif;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -30,54 +28,52 @@
             justify-content: space-between;
             padding: 20px;
             font-size: 1.2rem;
-            letter-spacing: 1px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         #game-container {
             position: relative;
-            border: 4px solid #1a1a2e;
-            border-radius: 12px;
-            box-shadow: 0 0 40px rgba(0, 210, 255, 0.2);
+            border: 2px solid #222;
+            border-radius: 15px;
+            overflow: hidden;
         }
 
         canvas {
-            background: #050505;
+            background: #000;
             display: block;
-            cursor: pointer;
+            cursor: crosshair;
         }
 
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
+            background: rgba(0,0,0,0.9);
             display: none; flex-direction: column;
             justify-content: center; align-items: center;
-            border-radius: 8px;
-            text-align: center;
         }
 
         .btn {
-            background: linear-gradient(45deg, var(--primary), var(--accent));
-            color: white; border: none;
-            padding: 15px 30px; border-radius: 8px;
+            background: white; color: black; border: none;
+            padding: 15px 40px; border-radius: 30px;
             font-weight: bold; cursor: pointer; margin-top: 20px;
-            text-transform: uppercase;
+            transition: 0.3s;
         }
+
+        .btn:hover { transform: scale(1.1); background: var(--primary); }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div>DISTANCE: <span id="score">0</span>m</div>
-        <div>GRAVITY: <span style="color: var(--primary)">LOW</span></div>
+        <div>Score: <span id="score">0</span></div>
+        <div id="status" style="color: var(--primary)">Gravity: 0.125</div>
     </div>
 
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="500"></canvas>
-        
         <div id="overlay" class="overlay">
             <h1>OUT OF BOUNDS</h1>
-            <p>You drifted too far into space.</p>
-            <button class="btn" onclick="resetGame()">Try Again</button>
+            <button class="btn" onclick="resetGame()">RESPAWN</button>
         </div>
     </div>
 
@@ -88,13 +84,15 @@
 
         let gameActive = true;
         let score = 0;
+        const colors = ['#00d2ff', '#9d50bb', '#00ff88', '#ff3e3e', '#f1c40f', '#ff79a8'];
 
         let player = {
             x: 100, y: 250,
             vx: 6, vy: 0,
-            radius: 10,
-            gravity: 0.125, // WAS 0.25 -> NOW 0.125 (2x Less Powerful)
-            friction: 0.995
+            radius: 12,
+            gravity: 0.125, // 2x less powerful
+            friction: 0.995,
+            color: '#00d2ff'
         };
 
         let hooks = [];
@@ -103,14 +101,10 @@
         function initHooks() {
             hooks = [];
             for (let i = 0; i < 20; i++) {
-                hooks.push({
-                    x: 200 + (i * 300),
-                    y: 50 + (Math.random() * 200)
-                });
+                hooks.push({ x: 200 + (i * 300), y: 100 + (Math.random() * 250) });
             }
         }
 
-        // Logic
         function startGrapple() {
             if (!gameActive) return;
             let nearest = null;
@@ -118,7 +112,7 @@
 
             hooks.forEach(h => {
                 let d = Math.hypot(player.x - h.x, player.y - h.y);
-                if (d < minDist && h.x > player.x - 20) {
+                if (d < minDist && h.x > player.x - 30) {
                     minDist = d;
                     nearest = h;
                 }
@@ -128,11 +122,16 @@
                 grapple.active = true;
                 grapple.hook = nearest;
                 grapple.length = minDist;
+                
+                // CHANGE COLOR ON GRAPPLE
+                player.color = colors[Math.floor(Math.random() * colors.length)];
             }
         }
 
         window.addEventListener('mousedown', startGrapple);
         window.addEventListener('mouseup', () => grapple.active = false);
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') startGrapple(); });
+        window.addEventListener('keyup', (e) => { if(e.code === 'Space') grapple.active = false; });
 
         function update() {
             if (!gameActive) return;
@@ -151,51 +150,56 @@
                     let angle = Math.atan2(dy, dx);
                     player.x = grapple.hook.x + Math.cos(angle) * grapple.length;
                     player.y = grapple.hook.y + Math.sin(angle) * grapple.length;
-
-                    // Swing Physics
-                    player.vx += Math.cos(angle - Math.PI/2) * 0.4;
-                    player.vy += Math.sin(angle - Math.PI/2) * 0.4;
+                    
+                    player.vx += Math.cos(angle - Math.PI/2) * 0.5;
+                    player.vy += Math.sin(angle - Math.PI/2) * 0.5;
                 }
             }
 
             score = Math.max(score, Math.floor(player.x / 10));
             scoreUI.innerText = score;
 
-            if (player.y > canvas.height + 100 || player.y < -200) die();
+            if (player.y > canvas.height + 100 || player.y < -400) die();
 
-            // Procedural generation
-            if (hooks[0] && player.x - hooks[0].x > 600) {
+            if (hooks[0] && player.x - hooks[0].x > 800) {
                 let last = hooks[hooks.length - 1];
                 hooks.shift();
-                hooks.push({ x: last.x + 300, y: 50 + Math.random() * 200 });
+                hooks.push({ x: last.x + 300, y: 100 + Math.random() * 250 });
             }
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
             ctx.save();
             ctx.translate(-player.x + 150, 0);
 
-            // Draw Hooks
+            // Hooks
             hooks.forEach(h => {
-                ctx.fillStyle = '#9d50bb';
-                ctx.beginPath(); ctx.arc(h.x, h.y, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#333';
+                ctx.beginPath(); ctx.arc(h.x, h.y, 8, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#555'; ctx.stroke();
             });
 
-            // Draw Rope
+            // Rope
             if (grapple.active) {
-                ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = player.color;
+                ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.moveTo(player.x, player.y);
                 ctx.lineTo(grapple.hook.x, grapple.hook.y);
                 ctx.stroke();
             }
 
-            // Draw Player
-            ctx.fillStyle = var(--primary);
-            ctx.shadowBlur = 10; ctx.shadowColor = var(--primary);
-            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2); ctx.fill();
+            // Player
+            ctx.fillStyle = player.color;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = player.color;
+            ctx.beginPath(); 
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2); 
+            ctx.fill();
+            ctx.shadowBlur = 0;
 
             ctx.restore();
             update();
@@ -208,7 +212,7 @@
         }
 
         function resetGame() {
-            player = { x: 100, y: 250, vx: 6, vy: 0, radius: 10, gravity: 0.125, friction: 0.995 };
+            player = { x: 100, y: 250, vx: 6, vy: 0, radius: 12, gravity: 0.125, friction: 0.995, color: '#00d2ff' };
             score = 0;
             grapple.active = false;
             initHooks();
